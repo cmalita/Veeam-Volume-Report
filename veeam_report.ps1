@@ -17,7 +17,7 @@ param(
     [switch]$v10 = $False
 )
 #For Veeam v10
-if $v10 {
+if ($v10) {
     Add-PSSnapin VeeamPSSnapin
 }
 # Configure these variables to suit your environment
