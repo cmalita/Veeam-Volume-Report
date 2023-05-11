@@ -1,9 +1,9 @@
 ###############################################################################
-# Script Name     : veeam_report_v10.ps1                                      #
+# Script Name     : veeam_report.ps1                                          #
 #                                                                             #
 # Author          : Cristian Malita                                           #
 #                                                                             #
-# Version         : 1.04                                                      #
+# Version         : 1.05                                                      #
 #                                                                             #
 # Date            : 11.05.2023                                                #
 #                                                                             #
@@ -12,10 +12,14 @@
 #                                                                             #
 ###############################################################################
 
-
+param(
+    [Parameter(HelpMessage="For environments with Veeam v10")]
+    [switch]$v10 = $False
+)
 #For Veeam v10
-Add-PSSnapin VeeamPSSnapin
-
+if $v10 {
+    Add-PSSnapin VeeamPSSnapin
+}
 # Configure these variables to suit your environment
 
 # How many days should the report cover
