@@ -19,6 +19,7 @@ param(
 #For Veeam v10
 if ($v10) {
     Add-PSSnapin VeeamPSSnapin
+    Write-Output "Running for Veeam v10"
 }
 # Configure these variables to suit your environment
 
@@ -87,6 +88,30 @@ function getObjectDetails {
 
 }
 
+function getAgentDetails {
+    param($job)
+    
+        $agentBackups = @()
+
+        $sessions = Get-VBRComputerBackupJobSession -Name "$($job.Name)?*" | Where {($_.endTime.Date -gt $cutoff)} | Where {($_.Result -eq "Success") -or ($_.Result -eq "Warning")}
+
+        foreach ($session in $sessions) {
+
+            $task = Get-VBRTaskSession -Session $session | Select-Object -Property @{n='vbrServer';e={$($VBRSERVER)}},
+                                                                        @{n='backupDate';e={$_.Progress.StartTimeUTC.toString('dd-MM-yyyy')}}, 
+                                                                        @{n='name';e={$($_.Name)}},
+                                                                        @{n='jobName';e={$($job.Name)}},
+                                                                        @{n='jobType';e={$($job.Type)}},
+                                                                        @{n='platform';e={$($_.objectPlatform)}},
+                                                                        @{n='usedSizeGB';e={[math]::Round(($_.Progress.ProcessedUsedSize / $GB), 2)}}, 
+                                                                        @{n='readSizeGB';e={[math]::Round(($_.Progress.ReadSize / $GB), 2)}}
+            $agentBackups += $task
+           
+        }
+
+    return $agentBackups
+}
+
 
 
 # DO NOT TOUCH any of these variables
@@ -100,6 +125,7 @@ $subject = "Veeam gather data for $vbrServer"
 $body = "Hello, `nPlease check attached report."
 
 $backups = @()
+$agentBackups = @()
 $wu=@()
 
 
@@ -112,12 +138,21 @@ $cutoff = (get-date).AddDays(-$DAYS).Date
 $sessions = Get-VBRBackupSession | Where {($_.endTime.Date -gt $cutoff)}
 $sessions_ordered = $sessions | Sort-Object -Property StartTimeUTC -Descending
 
+$agentJobs = Get-VBRComputerBackupJob
 
+foreach ($job in $agentJobs) {
+
+   $agentBackups += getAgentDetails($job)
+}
+
+$backups += $agentBackups
 
 # For each job session get the details of the objects inside 
 foreach($session in $sessions_ordered){
     $backups += getObjectDetails($session)
 }
+
+$backups = $backups | Sort-Object -Property name
 
 # Calculate the sum of readSize for each object to calculate WU
 $sums = ($backups | group-object name | select-object name, @{ n='readSizeGB'; e={($_.Group | Measure-Object readSizeGB -Sum).Sum}})
